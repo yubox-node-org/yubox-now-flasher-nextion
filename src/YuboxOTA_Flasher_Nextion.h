@@ -37,6 +37,8 @@ private:
     bool _connect(void);
     bool _prepareFlashUpdate(uint32_t baudrate);
 
+    void _dumpSerialData(bool, String &);
+
 public:
     YuboxOTA_Flasher_Nextion(void);
     ~YuboxOTA_Flasher_Nextion();

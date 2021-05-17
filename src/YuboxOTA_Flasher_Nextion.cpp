@@ -61,10 +61,12 @@ void YuboxOTA_Flasher_Nextion::_discardRxData(void)
 void YuboxOTA_Flasher_Nextion::_sendCommand(const char * cmd, bool eoc, bool nh)
 {
     _discardRxData();
-    if (nh) _pNexSerial->write(0x00);
-    _pNexSerial->print(cmd);
-    if (eoc) _pNexSerial->write("\xff\xff\xff");
-    log_d("Enviado comando: %s", cmd);
+    String data;
+    if (nh) data += 0x00;
+    data += cmd;
+    if (eoc) data += "\xff\xff\xff";
+    _pNexSerial->print(data);
+    _dumpSerialData(true, data);
 }
 
 uint16_t YuboxOTA_Flasher_Nextion::_recvString(String & resp, uint32_t timeout, bool recv_flag)
@@ -87,6 +89,7 @@ uint16_t YuboxOTA_Flasher_Nextion::_recvString(String & resp, uint32_t timeout, 
         }
     } while (numEOC < 3 && !exitFlag && millis() - t <= timeout);
 
+    _dumpSerialData(false, resp);
     if (numEOC >= 3) resp = resp.substring(0, resp.length() - 3);
 
     return resp.length();
@@ -427,8 +430,8 @@ bool YuboxOTA_Flasher_Nextion::finishFile(const char * filename, unsigned long l
             }
         }
         esp_task_wdt_reset();
+        _dumpSerialData(false, resp);
         if (resp.indexOf("\x88\xff\xff\xff") == -1) {
-            //Serial.println(resp);
             //_responseMsg = "Upload no ha sido aceptado por Nextion, o timeout";
             //_uploadRejected = true;
         } else {
@@ -454,4 +457,26 @@ YuboxOTA_Flasher_Nextion::~YuboxOTA_Flasher_Nextion()
         _recvString(r);
     }
     _togglepause_cb(false);
+}
+
+void YuboxOTA_Flasher_Nextion::_dumpSerialData(bool req, String & s)
+{
+    String datastr;
+    static const char *hexchars = "0123456789abcdef";
+
+    if (s.length() == 0) {
+        datastr = "(empty)";
+    } else {
+        for (auto i = 0; i < s.length(); i++) {
+            char c = s[i];
+            if (c >= 0x20 && c <= 0x7e) {
+                datastr += c;
+            } else {
+                datastr += "\\x";
+                datastr += hexchars[((uint8_t)c) >> 4];
+                datastr += hexchars[((uint8_t)c) & 0x0f];
+            }
+        }
+    }
+    log_d("%s [%s]", (req ? "SENT: " : "RECV: "), datastr.c_str());
 }
