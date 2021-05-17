@@ -64,7 +64,7 @@ void YuboxOTA_Flasher_Nextion::_sendCommand(const char * cmd, bool eoc, bool nh)
     if (nh) _pNexSerial->write(0x00);
     _pNexSerial->print(cmd);
     if (eoc) _pNexSerial->write("\xff\xff\xff");
-    //Serial.printf("DEBUG: <-- %s\r\n", cmd);
+    log_d("Enviado comando: %s", cmd);
 }
 
 uint16_t YuboxOTA_Flasher_Nextion::_recvString(String & resp, uint32_t timeout, bool recv_flag)
@@ -100,20 +100,20 @@ void YuboxOTA_Flasher_Nextion::_parseComOKResponse(String & r)
     for (auto i = 0; i < 6; i++) {
         idxSep[i] = r.indexOf(',', (i > 0) ? (idxSep[i-1] + 1) : 0);
         if (idxSep[i] == -1) {
-            Serial.printf("ERR: _parseComOKResponse() no encuentra coma #%d\r\n", i);
+            log_e("_parseComOKResponse() no encuentra coma #%d", i);
             return;
         }
     }
     String f;
 
-    //f = r.substring(idxSep[1] + 1, idxSep[2]);
-    //Serial.printf("DEBUG: _parseComOKResponse() modelo es %s\r\n", f.c_str());
+    f = r.substring(idxSep[1] + 1, idxSep[2]);
+    log_v("_parseComOKResponse() modelo es %s", f.c_str());
 
     f = r.substring(idxSep[5] + 1);
-    //Serial.printf("DEBUG: _parseComOKResponse() max flash (bytes) es %s\r\n", f.c_str());
+    log_d("_parseComOKResponse() max flash (bytes) es %s", f.c_str());
     long v = f.toInt();
     if (v <= 0) {
-        Serial.printf("ERR: _parseComOKResponse() no reconoce como número el valor: %s\r\n", f.c_str());
+        log_e("_parseComOKResponse() no reconoce como número el valor: %s", f.c_str());
     } else {
         _maxFlashSize = v;
     }
@@ -123,41 +123,41 @@ bool YuboxOTA_Flasher_Nextion::_testBaudrate(uint32_t baudrate)
 {
     String r;
 
-    //Serial.printf("DEBUG: probando Nextion con velocidad: %d ...\r\n", baudrate);
+    log_d("probando Nextion con velocidad: %d ...", baudrate);
     _pNexSerial->flush();
     _pNexSerial->updateBaudRate(baudrate);
 
-    //Serial.println("DEBUG: se intenta obtener información de la pantalla...");
+    log_d("se intenta obtener información de la pantalla...");
     _sendCommand("DRAKJHSUYDGBNCJHGJKSHBDN");
     _sendCommand("", true, true);   // 0x00 0xFF 0xFF 0xFF
 
     _recvString(r);
     if (r.length() > 0 && r[0] == 0x1a) {
-        //Serial.println("...se obtiene respuesta, baudrate podría ser correcto.");
+        log_d("...se obtiene respuesta, baudrate podría ser correcto.");
     } else {
-        //Serial.println("...no hay respuesta coherente, baudrate parece incorrecto.");
+        log_d("...no hay respuesta coherente, baudrate parece incorrecto.");
     }
 
-    //Serial.printf("DEBUG: conectando (intento 1 a %d bps)...\r\n", baudrate);
+    log_d("conectando (intento 1 a %d bps)...", baudrate);
     _sendCommand("connect"); _recvString(r);
     if (r.indexOf("comok") != -1) {
-        //Serial.printf("...respuesta es: %s\r\n", r.c_str());
+        log_d("...respuesta es: %s", r.c_str());
         _parseComOKResponse(r);
     } else {
-        //Serial.println("...no hay respuesta coherente, baudrate parece incorrecto.");
+        log_d("...no hay respuesta coherente, baudrate parece incorrecto.");
     }
 
     delay(110);
     _sendCommand("\xff\xff", false);
 
-    //Serial.printf("DEBUG: conectando (intento 2 a %d bps)...\r\n", baudrate);
+    log_d("conectando (intento 2 a %d bps)...", baudrate);
     _sendCommand("connect"); _recvString(r);
     if (r.indexOf("comok") != -1 || r[0] == 0x1a) {
-        //Serial.printf("...respuesta es: %s\r\n", r.c_str());
+        log_d("...respuesta es: %s", r.c_str());
         if (r.indexOf("comok") != -1) _parseComOKResponse(r);
         return true;
     } else {
-        //Serial.println("...no hay respuesta coherente, baudrate parece incorrecto.");
+        log_d("...no hay respuesta coherente, baudrate parece incorrecto.");
         return false;
     }
 }
@@ -173,7 +173,7 @@ uint32_t YuboxOTA_Flasher_Nextion::_queryBaudrate(void)
     // negociación inicial de interfaz YUBOX.
     if (_old_baudrate != 0) {
         if (_testBaudrate(_old_baudrate)) {
-            //Serial.printf("DEBUG: prueba exitosa con baudrate (de trabajo) %d!\r\n", _old_baudrate);
+            log_d("prueba exitosa con baudrate (de trabajo) %d!", _old_baudrate);
             return _old_baudrate;
         }
         esp_task_wdt_reset();
@@ -183,7 +183,7 @@ uint32_t YuboxOTA_Flasher_Nextion::_queryBaudrate(void)
     // intentar todos los otros baudrates hasta que uno funcione.
     for (auto i = 0; baudrates[i] > 0; i++) {
         if (_testBaudrate(baudrates[i])) {
-            //Serial.printf("DEBUG: prueba exitosa con baudrate %d!\r\n", baudrates[i]);
+            log_d("prueba exitosa con baudrate %d!\r\n", baudrates[i]);
             return baudrates[i];
         }
         esp_task_wdt_reset();
@@ -282,7 +282,7 @@ bool YuboxOTA_Flasher_Nextion::startFile(const char * filename, unsigned long lo
 
     if (_alreadyFlashed) {
         // Entrada de archivo aceptada, pero se ignora
-        //Serial.printf("DEBUG: se ignora entrada de archivo porque ya se flasheó firmware Nextion: %s\r\n", filename);
+        log_d("se ignora entrada de archivo porque ya se flasheó firmware Nextion: %s\r\n", filename);
         return true;
     }
 
@@ -291,7 +291,7 @@ bool YuboxOTA_Flasher_Nextion::startFile(const char * filename, unsigned long lo
     const char * exten = strstr(filename, ".tft");
     if (exten == NULL || strlen(exten) != 4) {
         // Entrada de archivo aceptada, pero se ignora
-        //Serial.printf("DEBUG: se ignora entrada de archivo porque no es firmware Nextion: %s\r\n", filename);
+        log_d("se ignora entrada de archivo porque no es firmware Nextion: %s", filename);
         _fileIgnored = true;
         return true;
     }
@@ -331,7 +331,7 @@ bool YuboxOTA_Flasher_Nextion::_prepareFlashUpdate(uint32_t baudrate)
     String cmd = "whmi-wri "; cmd += _totalUpload; cmd += ","; cmd += baudrate; cmd += ",0";
     _sendCommand(cmd.c_str());
     _pNexSerial->flush();
-    //Serial.printf("DEBUG: _prepareFlashUpdate() se cambia velocidad a %d...\r\n", baudrate);
+    log_d("_prepareFlashUpdate() se cambia velocidad a %d...", baudrate);
     _pNexSerial->updateBaudRate(baudrate);
     _recvString(r, 800, true);
     if (r.indexOf(0x05) != -1) {
@@ -341,7 +341,7 @@ bool YuboxOTA_Flasher_Nextion::_prepareFlashUpdate(uint32_t baudrate)
 
     // Recuperación: restaurar velocidad previa
     _pNexSerial->flush();
-    //Serial.printf("DEBUG: _prepareFlashUpdate() se restaura velocidad a %d debido a error...\r\n", _curr_baudrate);
+    log_d("DEBUG: _prepareFlashUpdate() se restaura velocidad a %d debido a error...", _curr_baudrate);
     _pNexSerial->updateBaudRate(_curr_baudrate);
     return false;
 }
@@ -421,7 +421,7 @@ bool YuboxOTA_Flasher_Nextion::finishFile(const char * filename, unsigned long l
 
                 resp += (char)val;
                 if (resp.length() >= 4 && resp.indexOf("\x88\xff\xff\xff") != -1) {
-                    //Serial.println("DEBUG: encontrada respuesta 0x88! OK");
+                    log_d("encontrada respuesta 0x88! OK");
                     break;
                 }
             }
