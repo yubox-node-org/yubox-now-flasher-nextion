@@ -33,6 +33,7 @@ private:
     bool _testBaudrate(uint32_t baudrate);
     uint32_t _queryBaudrate(void);
     bool _echoTest(String);
+    bool _desactivarSleepDim(void);
     uint32_t _calcTransmitTime(String &);
     bool _connect(void);
     bool _prepareFlashUpdate(uint32_t baudrate);

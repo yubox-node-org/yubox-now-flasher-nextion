@@ -213,6 +213,49 @@ bool YuboxOTA_Flasher_Nextion::_echoTest(String s)
     return (r.indexOf(s) != -1);
 }
 
+bool YuboxOTA_Flasher_Nextion::_desactivarSleepDim(void)
+{
+    String r;
+    bool sleeping;
+    bool dimmed;
+
+    // Obtener estado actual de sleep de Nextion
+    _sendCommand("get sleep");
+    _recvString(r);
+    if (r[0] != 0x71) {
+        log_e("respuesta inválida a comando: get sleep");
+        return false;
+    }
+    sleeping = (r[1] != 0x00);
+    log_d("sleep %s", sleeping ? "ACTIVO" : "INACTIVO");
+
+    // Obtener estado actual de dim pantalla
+    _sendCommand("get dim");
+    _recvString(r);
+    if (r[0] != 0x71) {
+        log_e("respuesta inválida a comando: get sleep");
+        return false;
+    }
+    dimmed = (r[1] == 0x00);
+    log_d("dimmed %d", (uint8_t)(r[1]));
+
+    if (!_echoTest("YUBOX")) {
+        log_e("fallo en ECO en revisión sleep/dim");
+        return false;
+    }
+
+    if (sleeping) {
+        _sendCommand("sleep=0");
+        delay(1000);
+    }
+    if (dimmed) {
+        _sendCommand("dim=100");
+        delay(15);
+    }
+
+    return true;
+}
+
 bool YuboxOTA_Flasher_Nextion::_connect(void)
 {
     uint32_t queriedBaudrate = _queryBaudrate();
@@ -235,7 +278,15 @@ bool YuboxOTA_Flasher_Nextion::_connect(void)
         return false;
     }
 
-    // TODO: handle sleep/dim
+    esp_task_wdt_reset();
+
+    if (!_desactivarSleepDim()) {
+        _responseMsg = "Fallo en manejo de banderas de sleep/dim de Nextion!";
+        _uploadRejected = true;
+        return false;
+    }
+
+    esp_task_wdt_reset();
 
     return true;
 }
