@@ -77,8 +77,7 @@ public:
 
     /*************************************************************************/
 
-    void attachNextion(YuboxOTA_Flasher_Nextion_TogglePause_func_cb tp_cb,
-        HardwareSerial * sp = &Serial2);
+    void attachNextion(YuboxOTA_Flasher_Nextion_TogglePause_func_cb, HardwareSerial *);
 };
 
 #endif
