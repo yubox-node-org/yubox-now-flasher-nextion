@@ -362,11 +362,15 @@ bool YuboxOTA_Flasher_Nextion::startFile(const char * filename, unsigned long lo
 
     uint32_t uploadSpeeds[] = {921600, 115200, 0};
     for (auto i = 0; uploadSpeeds[i] != 0; i++) {
+        esp_task_wdt_reset();
+
         _responseMsg.clear();
-        if (_prepareFlashUpdate(uploadSpeeds[i])) {
-            _flashing = true;
-            _filestart_cb(filename, true, filesize);
-            return true;
+        for (auto j = 0; j < 3; j++) {
+            if (_prepareFlashUpdate(uploadSpeeds[i])) {
+                _flashing = true;
+                _filestart_cb(filename, true, filesize);
+                return true;
+            }
         }
     }
 
@@ -385,17 +389,18 @@ bool YuboxOTA_Flasher_Nextion::_prepareFlashUpdate(uint32_t baudrate)
     String cmd = "whmi-wri "; cmd += _totalUpload; cmd += ","; cmd += baudrate; cmd += ",0";
     _sendCommand(cmd.c_str());
     _pNexSerial->flush();
-    log_d("_prepareFlashUpdate() se cambia velocidad a %d...", baudrate);
+    log_i("se intenta cambiar velocidad a %d...", baudrate);
     _pNexSerial->updateBaudRate(baudrate);
     _recvString(r, 800, true);
     if (r.indexOf(0x05) != -1) {
         // Nextion ha aceptado la velocidad y tamaño del firmware
+        log_i("aceptado cambio velocidad a %d...", baudrate);
         return true;
     }
 
     // Recuperación: restaurar velocidad previa
     _pNexSerial->flush();
-    log_d("DEBUG: _prepareFlashUpdate() se restaura velocidad a %d debido a error...", _curr_baudrate);
+    log_w("se restaura velocidad a %d debido a error...", _curr_baudrate);
     _pNexSerial->updateBaudRate(_curr_baudrate);
     return false;
 }
@@ -413,6 +418,8 @@ bool YuboxOTA_Flasher_Nextion::appendFileData(const char * filename, unsigned lo
         _uploadRejected = true;
         return false;
     }
+
+    esp_task_wdt_reset();
 
     while (!_uploadRejected && size > 0 && _currUpload < _totalUpload) {
         _pNexSerial->write(*block);
