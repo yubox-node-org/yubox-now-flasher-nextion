@@ -422,9 +422,17 @@ bool YuboxOTA_Flasher_Nextion::appendFileData(const char * filename, unsigned lo
     esp_task_wdt_reset();
 
     while (!_uploadRejected && size > 0 && _currUpload < _totalUpload) {
-        _pNexSerial->write(*block);
-        _currUpload++;
-        size--; block++;
+        uint32_t bytesUntilFeedback = ((_currUpload + 0x1000U) & ~0xFFFU) - _currUpload;
+        uint32_t bytesToWrite = size;
+        if (bytesToWrite > bytesUntilFeedback) bytesToWrite = bytesUntilFeedback;
+        auto bytesWritten = _pNexSerial->write(block, bytesToWrite);
+        log_v("from %u requested write %u bytes, written %d bytes, %u bytes until feedback",
+            _currUpload, bytesToWrite, bytesWritten, bytesUntilFeedback);
+        if (bytesWritten > 0) {
+            _currUpload += bytesWritten;
+            size -= bytesWritten;
+            block += bytesWritten;
+        }
 
         if ((_currUpload & 0xfffU) == 0 || _currUpload >= _totalUpload) {
             auto retries = 0;
