@@ -1,9 +1,8 @@
 #ifndef _YUBOX_OTA_FLASHER_NEXTION_TFT_H_
 #define _YUBOX_OTA_FLASHER_NEXTION_TFT_H_
 
-#include "YuboxOTA_Flasher.h"
-
-#include "HardwareSerial.h"
+#include <YuboxOTA_Flasher.h>
+#include <HardwareSerial.h>
 
 typedef std::function<void (bool) > YuboxOTA_Flasher_Nextion_TogglePause_func_cb;
 
@@ -39,6 +38,10 @@ private:
     bool _prepareFlashUpdate(uint32_t baudrate);
 
     void _dumpSerialData(bool, String &);
+
+protected:
+    virtual uint32_t _getBaudRate(void);
+    virtual void _updateBaudRate(unsigned long);
 
 public:
     YuboxOTA_Flasher_Nextion(void);

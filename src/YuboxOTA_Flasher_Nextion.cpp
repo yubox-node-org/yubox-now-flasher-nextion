@@ -127,8 +127,7 @@ bool YuboxOTA_Flasher_Nextion::_testBaudrate(uint32_t baudrate)
     String r;
 
     log_d("probando Nextion con velocidad: %d ...", baudrate);
-    _pNexSerial->flush();
-    _pNexSerial->updateBaudRate(baudrate);
+    _updateBaudRate(baudrate);
 
     log_d("se intenta obtener información de la pantalla...");
     _sendCommand("DRAKJHSUYDGBNCJHGJKSHBDN");
@@ -309,7 +308,7 @@ bool YuboxOTA_Flasher_Nextion::startUpdate(void)
     _fileIgnored = false;
     _resetMade = false;
 
-    _old_baudrate = _pNexSerial->baudRate();
+    _old_baudrate = _getBaudRate();
     if (_curr_baudrate == 0) _curr_baudrate = _old_baudrate;
 
     if (!_connect()) return false;
@@ -388,9 +387,8 @@ bool YuboxOTA_Flasher_Nextion::_prepareFlashUpdate(uint32_t baudrate)
 
     String cmd = "whmi-wri "; cmd += _totalUpload; cmd += ","; cmd += baudrate; cmd += ",0";
     _sendCommand(cmd.c_str());
-    _pNexSerial->flush();
     log_i("se intenta cambiar velocidad a %d...", baudrate);
-    _pNexSerial->updateBaudRate(baudrate);
+    _updateBaudRate(baudrate);
     _recvString(r, 800, true);
     if (r.indexOf(0x05) != -1) {
         // Nextion ha aceptado la velocidad y tamaño del firmware
@@ -399,9 +397,8 @@ bool YuboxOTA_Flasher_Nextion::_prepareFlashUpdate(uint32_t baudrate)
     }
 
     // Recuperación: restaurar velocidad previa
-    _pNexSerial->flush();
     log_w("se restaura velocidad a %d debido a error...", _curr_baudrate);
-    _pNexSerial->updateBaudRate(_curr_baudrate);
+    _updateBaudRate(_curr_baudrate);
     return false;
 }
 
@@ -481,7 +478,7 @@ bool YuboxOTA_Flasher_Nextion::finishFile(const char * filename, unsigned long l
         String resp;
 
         _pNexSerial->flush();
-        if (_old_baudrate != 0) _pNexSerial->updateBaudRate(_old_baudrate);
+        if (_old_baudrate != 0) _updateBaudRate(_old_baudrate);
 
         while (millis() - t <= 2000) {
             if (_pNexSerial->available()) {
@@ -513,8 +510,7 @@ YuboxOTA_Flasher_Nextion::~YuboxOTA_Flasher_Nextion()
 {
     if (_pNexSerial != NULL && _old_baudrate != 0) {
         if (!_resetMade) {
-            _pNexSerial->flush();
-            _pNexSerial->updateBaudRate(_old_baudrate);
+            _updateBaudRate(_old_baudrate);
             _sendCommand("rest");
             delay(200);
         }
@@ -545,4 +541,15 @@ void YuboxOTA_Flasher_Nextion::_dumpSerialData(bool req, String & s)
         }
     }
     log_d("%s [%s]", (req ? "SENT: " : "RECV: "), datastr.c_str());
+}
+
+uint32_t YuboxOTA_Flasher_Nextion::_getBaudRate(void)
+{
+    return _pNexSerial->baudRate();
+}
+
+void YuboxOTA_Flasher_Nextion::_updateBaudRate(unsigned long baud)
+{
+    _pNexSerial->flush();
+    _pNexSerial->updateBaudRate(baud);
 }
