@@ -359,7 +359,7 @@ bool YuboxOTA_Flasher_Nextion::startFile(const char * filename, unsigned long lo
     _totalUpload = filesize;
     _currUpload = 0;
 
-    uint32_t uploadSpeeds[] = {921600, 115200, 0};
+    uint32_t uploadSpeeds[] = {921600, 115200, 57600, 38400, 9600, 0};
     for (auto i = 0; uploadSpeeds[i] != 0; i++) {
         esp_task_wdt_reset();
 
